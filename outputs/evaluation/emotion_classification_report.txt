@@ -1,0 +1,22 @@
+FER-2013 Emotion Model Evaluation
+================================
+
+Test Loss     : 1.2680
+Test Accuracy : 0.5141
+Test Accuracy : 51.41%
+
+Classification Report
+---------------------
+              precision    recall  f1-score   support
+
+       angry     0.4147    0.2234    0.2904       958
+     disgust     0.8000    0.0721    0.1322       111
+        fear     0.3233    0.2197    0.2616      1024
+       happy     0.7034    0.8129    0.7542      1774
+     neutral     0.4447    0.5320    0.4845      1233
+         sad     0.3811    0.4306    0.4044      1247
+    surprise     0.5949    0.7316    0.6562       831
+
+    accuracy                         0.5141      7178
+   macro avg     0.5232    0.4318    0.4262      7178
+weighted avg     0.4992    0.5141    0.4940      7178
