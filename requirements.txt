@@ -1,0 +1,10 @@
+
+streamlit==1.64.0
+tensorflow==2.21.0
+opencv-python-headless==5.0.0.93
+mediapipe==1.0.1
+ultralytics==8.4.157
+numpy==2.4.6
+pandas==3.0.6
+Pillow==12.3.0
+scikit-learn==1.9.1
