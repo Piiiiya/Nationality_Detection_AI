@@ -29,3 +29,9 @@ outputs/annotated_predictions/
 .DS_Store
 Thumbs.db
 .vscode/
+
+
+# Experimental emotion models - keep locally, exclude from GitHub
+models/emotion_model_augmented_best.keras
+models/emotion_model_best.keras
+models/emotion_model_mobilenetv2_best.keras
