@@ -8,3 +8,8 @@ numpy==2.4.6
 pandas==3.0.6
 Pillow==12.3.0
 scikit-learn==1.9.1
+
+# CPU-only PyTorch
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.6.0+cpu
+torchvision==0.21.0+cpu
