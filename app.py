@@ -1,9 +1,35 @@
+
+import os
+
+# ============================================================
+# CPU CONFIGURATION
+# Set these BEFORE importing TensorFlow, PyTorch or MediaPipe
+# ============================================================
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
+
+# ============================================================
+# IMPORTS
+# ============================================================
+
 from pathlib import Path
 
 import cv2
 import numpy as np
 import streamlit as st
 import tensorflow as tf
+import torch
+
 from PIL import Image
 from ultralytics import YOLO
 
@@ -15,22 +41,58 @@ from src.predictor import (
 
 
 # ============================================================
+# LIMIT PYTORCH CPU THREADS
+# ============================================================
+
+torch.set_num_threads(1)
+
+try:
+    torch.set_num_interop_threads(1)
+except RuntimeError:
+    pass
+
+
+# ============================================================
+# LIMIT TENSORFLOW CPU THREADS
+# ============================================================
+
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
+
+
+# ============================================================
 # PATHS
 # ============================================================
 
 PROJECT_DIR = Path(__file__).resolve().parent
 
-DEMO_MODEL_PATH = PROJECT_DIR / "models" / "demographic_model_best.keras"
-AGE_MODEL_PATH = PROJECT_DIR / "models" / "age_model_best.keras"
-EMOTION_MODEL_PATH = PROJECT_DIR / "models" / "emotion_model_balanced_best.keras"
+DEMO_MODEL_PATH = (
+    PROJECT_DIR / "models" / "demographic_model_best.keras"
+)
 
-PERSON_MODEL_PATH = PROJECT_DIR / "models" / "yolo11n.pt"
-DRESS_MODEL_PATH = PROJECT_DIR / "models" / "yolo11n-seg.pt"
-FACE_MODEL_PATH = PROJECT_DIR / "models" / "blaze_face_short_range.tflite"
+AGE_MODEL_PATH = (
+    PROJECT_DIR / "models" / "age_model_best.keras"
+)
+
+EMOTION_MODEL_PATH = (
+    PROJECT_DIR / "models" / "emotion_model_balanced_best.keras"
+)
+
+PERSON_MODEL_PATH = (
+    PROJECT_DIR / "models" / "yolo11n.pt"
+)
+
+DRESS_MODEL_PATH = (
+    PROJECT_DIR / "models" / "yolo11n-seg.pt"
+)
+
+FACE_MODEL_PATH = (
+    PROJECT_DIR / "models" / "blaze_face_short_range.tflite"
+)
 
 
 # ============================================================
-# PAGE CONFIG
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -51,6 +113,7 @@ st.markdown(
 Upload an image containing one or more people.
 
 The system detects each person and estimates:
+
 - Demographic category
 - Age
 - Emotion
@@ -65,7 +128,7 @@ The system detects each person and estimates:
 
 st.warning(
     """
-Important limitation:
+**Important limitation:**
 
 The demographic model uses FairFace demographic categories.
 These categories are NOT actual nationality predictions.
@@ -80,31 +143,58 @@ on person segmentation and colour analysis.
 
 
 # ============================================================
-# LOAD MODELS
+# MODEL LOADING
 # ============================================================
 
 @st.cache_resource
 def load_models():
 
+    # ----------------------------------------
+    # DEMOGRAPHIC MODEL
+    # ----------------------------------------
+
     demo_model = tf.keras.models.load_model(
-        DEMO_MODEL_PATH
+        DEMO_MODEL_PATH,
+        compile=False,
     )
+
+    # ----------------------------------------
+    # AGE MODEL
+    # ----------------------------------------
 
     age_model = tf.keras.models.load_model(
-        AGE_MODEL_PATH
+        AGE_MODEL_PATH,
+        compile=False,
     )
 
+    # ----------------------------------------
+    # EMOTION MODEL
+    # ----------------------------------------
+
     emotion_model = tf.keras.models.load_model(
-        EMOTION_MODEL_PATH
+        EMOTION_MODEL_PATH,
+        compile=False,
     )
+
+    # ----------------------------------------
+    # YOLO PERSON MODEL
+    # ----------------------------------------
 
     person_model = YOLO(
         str(PERSON_MODEL_PATH)
     )
 
+    # ----------------------------------------
+    # YOLO DRESS SEGMENTATION MODEL
+    # ----------------------------------------
+
     dress_model = YOLO(
         str(DRESS_MODEL_PATH)
     )
+
+    # ----------------------------------------
+    # MEDIAPIPE FACE DETECTOR
+    # ----------------------------------------
 
     face_detector = create_face_detector(
         FACE_MODEL_PATH
@@ -121,22 +211,33 @@ def load_models():
 
 
 # ============================================================
-# LOAD MODELS
+# LOAD MODELS WITH ERROR HANDLING
 # ============================================================
 
-with st.spinner("Loading AI models..."):
+try:
 
-    (
-        demo_model,
-        age_model,
-        emotion_model,
-        person_model,
-        dress_model,
-        face_detector,
-    ) = load_models()
+    with st.spinner("Loading AI models..."):
 
+        (
+            demo_model,
+            age_model,
+            emotion_model,
+            person_model,
+            dress_model,
+            face_detector,
+        ) = load_models()
 
-st.success("AI models loaded successfully.")
+    st.success("AI models loaded successfully.")
+
+except Exception as error:
+
+    st.error(
+        "Unable to load the AI models."
+    )
+
+    st.exception(error)
+
+    st.stop()
 
 
 # ============================================================
@@ -160,189 +261,199 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    image = Image.open(uploaded_file).convert("RGB")
+    try:
 
-    image_array = np.array(image)
+        # ------------------------------------
+        # READ IMAGE
+        # ------------------------------------
 
-    st.subheader("Input Image")
+        image = Image.open(
+            uploaded_file
+        ).convert("RGB")
 
-    st.image(
-        image,
-        use_container_width=True,
-    )
+        image_array = np.array(image)
 
-    st.divider()
+        st.subheader("Input Image")
 
-    # --------------------------------------------------------
-    # DETECT PERSONS
-    # --------------------------------------------------------
-
-    with st.spinner(
-        "Detecting people and faces..."
-    ):
-
-        persons = detect_all_persons(
-            image_array,
-            person_model,
-            conf=0.25,
-            face_detector=face_detector,
+        st.image(
+            image,
+            width="stretch",
         )
 
-    if not persons:
+        st.divider()
 
-        st.error(
-            "No person was detected in the uploaded image."
-        )
-
-    else:
-
-        st.success(
-            f"{len(persons)} person(s) detected."
-        )
-
-        # ----------------------------------------------------
-        # RUN PREDICTIONS
-        # ----------------------------------------------------
-
-        predictions = []
+        # ------------------------------------
+        # DETECT PERSONS
+        # ------------------------------------
 
         with st.spinner(
-            "Running predictions..."
+            "Detecting people and faces..."
         ):
 
-            for person_data in persons:
-
-                prediction = predict_person_attributes(
-                    person_data,
-                    demo_model,
-                    age_model,
-                    emotion_model,
-                    dress_model,
-                )
-
-                predictions.append(
-                    prediction
-                )
-
-        # ----------------------------------------------------
-        # RESULTS
-        # ----------------------------------------------------
-
-        st.subheader("Prediction Results")
-
-        for index, (
-            person_data,
-            prediction,
-        ) in enumerate(
-            zip(persons, predictions),
-            start=1,
-        ):
-
-            st.markdown(
-                f"### 👤 Person {index}"
+            persons = detect_all_persons(
+                image_array,
+                person_model,
+                conf=0.25,
+                face_detector=face_detector,
             )
 
-            col1, col2 = st.columns(
-                2
+        # ------------------------------------
+        # NO PERSON DETECTED
+        # ------------------------------------
+
+        if not persons:
+
+            st.error(
+                "No person was detected in the uploaded image."
             )
 
-            # -----------------------------------------------
-            # PERSON INFORMATION
-            # -----------------------------------------------
+        else:
 
-            with col1:
+            st.success(
+                f"{len(persons)} person(s) detected."
+            )
+
+            # --------------------------------
+            # RUN PREDICTIONS
+            # --------------------------------
+
+            predictions = []
+
+            with st.spinner(
+                "Running predictions..."
+            ):
+
+                for person_data in persons:
+
+                    prediction = predict_person_attributes(
+                        person_data,
+                        demo_model,
+                        age_model,
+                        emotion_model,
+                        dress_model,
+                    )
+
+                    predictions.append(
+                        prediction
+                    )
+
+            # --------------------------------
+            # DISPLAY RESULTS
+            # --------------------------------
+
+            st.subheader("Prediction Results")
+
+            for index, (
+                person_data,
+                prediction,
+            ) in enumerate(
+                zip(persons, predictions),
+                start=1,
+            ):
 
                 st.markdown(
-                    "#### Demographic"
+                    f"### 👤 Person {index}"
                 )
 
-                st.metric(
-                    "Category",
-                    prediction[
-                        "demographic"
-                    ],
-                )
+                col1, col2 = st.columns(2)
 
-                st.write(
-                    "Confidence:",
-                    f'{prediction["demographic_confidence"]:.2f}%',
-                )
+                # ----------------------------
+                # DEMOGRAPHIC AND AGE
+                # ----------------------------
 
-                st.markdown(
-                    "#### Age"
-                )
+                with col1:
 
-                if prediction["age"] is not None:
+                    st.markdown(
+                        "#### Demographic"
+                    )
 
                     st.metric(
-                        "Estimated Age",
-                        f'{prediction["age"]} years',
+                        "Category",
+                        prediction["demographic"],
+                    )
+
+                    st.write(
+                        "Confidence:",
+                        f'{prediction["demographic_confidence"]:.2f}%',
+                    )
+
+                    st.markdown(
+                        "#### Age"
+                    )
+
+                    if prediction["age"] is not None:
+
+                        st.metric(
+                            "Estimated Age",
+                            f'{prediction["age"]} years',
+                        )
+
+                    else:
+
+                        st.write(
+                            "Face not detected"
+                        )
+
+                # ----------------------------
+                # EMOTION AND DRESS COLOUR
+                # ----------------------------
+
+                with col2:
+
+                    st.markdown(
+                        "#### Emotion"
+                    )
+
+                    st.metric(
+                        "Emotion",
+                        prediction["emotion"],
+                    )
+
+                    st.write(
+                        "Confidence:",
+                        f'{prediction["emotion_confidence"]:.2f}%',
+                    )
+
+                    st.markdown(
+                        "#### Dress Colour"
+                    )
+
+                    st.metric(
+                        "Colour",
+                        prediction["dress_color"],
+                    )
+
+                    st.write(
+                        "Confidence:",
+                        f'{prediction["dress_confidence"]:.2f}%',
+                    )
+
+                # ----------------------------
+                # FACE DETECTION STATUS
+                # ----------------------------
+
+                if prediction["face_detected"]:
+
+                    st.success(
+                        "Face detected successfully."
                     )
 
                 else:
 
-                    st.write(
-                        "Face not detected"
+                    st.warning(
+                        "Face was not detected. "
+                        "Age and emotion could not be estimated."
                     )
 
-            # -----------------------------------------------
-            # EMOTION + DRESS
-            # -----------------------------------------------
+                st.divider()
 
-            with col2:
+    except Exception as error:
 
-                st.markdown(
-                    "#### Emotion"
-                )
+        st.error(
+            "An error occurred while processing the image."
+        )
 
-                st.metric(
-                    "Emotion",
-                    prediction[
-                        "emotion"
-                    ],
-                )
-
-                st.write(
-                    "Confidence:",
-                    f'{prediction["emotion_confidence"]:.2f}%',
-                )
-
-                st.markdown(
-                    "#### Dress Colour"
-                )
-
-                st.metric(
-                    "Colour",
-                    prediction[
-                        "dress_color"
-                    ],
-                )
-
-                st.write(
-                    "Confidence:",
-                    f'{prediction["dress_confidence"]:.2f}%',
-                )
-
-            # -----------------------------------------------
-            # FACE STATUS
-            # -----------------------------------------------
-
-            if prediction[
-                "face_detected"
-            ]:
-
-                st.success(
-                    "Face detected successfully."
-                )
-
-            else:
-
-                st.warning(
-                    "Face was not detected. "
-                    "Age and emotion could not be estimated."
-                )
-
-            st.divider()
+        st.exception(error)
 
 
 # ============================================================
