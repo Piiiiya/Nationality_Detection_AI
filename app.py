@@ -19,30 +19,58 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 
 # ============================================================
-# IMPORTS
+# IMPORTS WITH CLOUD DIAGNOSTIC CHECKPOINTS
 # ============================================================
 
 from pathlib import Path
+import sys
 
+print("DIAGNOSTIC: Starting app imports", flush=True)
+
+print("DIAGNOSTIC: Importing OpenCV...", flush=True)
 import cv2
+print("DIAGNOSTIC: OpenCV imported successfully", flush=True)
+
+print("DIAGNOSTIC: Importing NumPy...", flush=True)
 import numpy as np
+print("DIAGNOSTIC: NumPy imported successfully", flush=True)
+
+print("DIAGNOSTIC: Importing Streamlit...", flush=True)
 import streamlit as st
+print("DIAGNOSTIC: Streamlit imported successfully", flush=True)
+
+print("DIAGNOSTIC: Importing TensorFlow...", flush=True)
 import tensorflow as tf
+print("DIAGNOSTIC: TensorFlow imported successfully", flush=True)
+
+print("DIAGNOSTIC: Importing PyTorch...", flush=True)
 import torch
+print("DIAGNOSTIC: PyTorch imported successfully", flush=True)
 
+print("DIAGNOSTIC: Importing Pillow...", flush=True)
 from PIL import Image
-from ultralytics import YOLO
+print("DIAGNOSTIC: Pillow imported successfully", flush=True)
 
+print("DIAGNOSTIC: Importing Ultralytics...", flush=True)
+from ultralytics import YOLO
+print("DIAGNOSTIC: Ultralytics imported successfully", flush=True)
+
+print("DIAGNOSTIC: Importing project predictor...", flush=True)
 from src.predictor import (
     create_face_detector,
     detect_all_persons,
     predict_person_attributes,
 )
+print("DIAGNOSTIC: Project predictor imported successfully", flush=True)
+
+print("DIAGNOSTIC: All imports completed", flush=True)
 
 
 # ============================================================
 # LIMIT PYTORCH CPU THREADS
 # ============================================================
+
+print("DIAGNOSTIC: Configuring PyTorch threads...", flush=True)
 
 torch.set_num_threads(1)
 
@@ -51,13 +79,19 @@ try:
 except RuntimeError:
     pass
 
+print("DIAGNOSTIC: PyTorch thread configuration completed", flush=True)
+
 
 # ============================================================
 # LIMIT TENSORFLOW CPU THREADS
 # ============================================================
 
+print("DIAGNOSTIC: Configuring TensorFlow threads...", flush=True)
+
 tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
+
+print("DIAGNOSTIC: TensorFlow thread configuration completed", flush=True)
 
 
 # ============================================================
@@ -149,56 +183,84 @@ on person segmentation and colour analysis.
 @st.cache_resource
 def load_models():
 
+    print("DIAGNOSTIC: Starting model loading", flush=True)
+
     # ----------------------------------------
     # DEMOGRAPHIC MODEL
     # ----------------------------------------
+
+    print("DIAGNOSTIC: Loading demographic model...", flush=True)
 
     demo_model = tf.keras.models.load_model(
         DEMO_MODEL_PATH,
         compile=False,
     )
 
+    print("DIAGNOSTIC: Demographic model loaded", flush=True)
+
     # ----------------------------------------
     # AGE MODEL
     # ----------------------------------------
+
+    print("DIAGNOSTIC: Loading age model...", flush=True)
 
     age_model = tf.keras.models.load_model(
         AGE_MODEL_PATH,
         compile=False,
     )
 
+    print("DIAGNOSTIC: Age model loaded", flush=True)
+
     # ----------------------------------------
     # EMOTION MODEL
     # ----------------------------------------
+
+    print("DIAGNOSTIC: Loading emotion model...", flush=True)
 
     emotion_model = tf.keras.models.load_model(
         EMOTION_MODEL_PATH,
         compile=False,
     )
 
+    print("DIAGNOSTIC: Emotion model loaded", flush=True)
+
     # ----------------------------------------
     # YOLO PERSON MODEL
     # ----------------------------------------
+
+    print("DIAGNOSTIC: Loading YOLO person model...", flush=True)
 
     person_model = YOLO(
         str(PERSON_MODEL_PATH)
     )
 
+    print("DIAGNOSTIC: YOLO person model loaded", flush=True)
+
     # ----------------------------------------
     # YOLO DRESS SEGMENTATION MODEL
     # ----------------------------------------
+
+    print("DIAGNOSTIC: Loading YOLO segmentation model...", flush=True)
 
     dress_model = YOLO(
         str(DRESS_MODEL_PATH)
     )
 
+    print("DIAGNOSTIC: YOLO segmentation model loaded", flush=True)
+
     # ----------------------------------------
     # MEDIAPIPE FACE DETECTOR
     # ----------------------------------------
 
+    print("DIAGNOSTIC: Creating MediaPipe face detector...", flush=True)
+
     face_detector = create_face_detector(
         FACE_MODEL_PATH
     )
+
+    print("DIAGNOSTIC: MediaPipe face detector created", flush=True)
+
+    print("DIAGNOSTIC: All models loaded successfully", flush=True)
 
     return (
         demo_model,
